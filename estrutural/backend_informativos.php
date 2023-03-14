@@ -1,3 +1,4 @@
+<!-- backend_informativos.php -->
 <?php
 include 'backend.php';
 

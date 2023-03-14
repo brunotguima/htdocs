@@ -1,3 +1,4 @@
+<!-- backend.php -->
 <?php
 
 $servername = "localhost";
@@ -7,12 +8,14 @@ $dbname = "sis";
 
 session_start();
 
-function dd($var) {
+function dd($var)
+{
   var_dump($var);
   die();
 }
 
-function redirectIndex() {
+function redirectIndex()
+{
   header("Location: ../index.php");
   exit();
 }
@@ -33,41 +36,45 @@ function conectar_banco()
 // cadastra um novo usuário no banco de dados
 function cadastrar_usuario()
 {
-  if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  try {
+    $pdo = conectar_banco();
+
+    // Verificar se o email ou username já estão cadastrados
+    $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE email = :email OR username = :username");
+    $stmt->execute([':email' => $_POST['email'], ':username' => $_POST['username']]);
+
+    if ($stmt->rowCount() > 0) {
+      throw new Exception("Usuário já cadastrado!");
+    }
+
+    // Inserir o novo usuário
     $nome = $_POST['nome'];
     $email = $_POST['email'];
     $senha = $_POST['senha'];
     $username = $_POST['username'];
 
-    $pdo = conectar_banco();
+    inserir_usuario($pdo, $nome, $email, $senha, $username);
 
-    // Verificar se o email ou username já estão cadastrados
-    $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE email = :email OR username = :username");
-    $stmt->execute([':email' => $email, ':username' => $username]);
-
-    if ($stmt->rowCount() > 0) {
-      // Usuário já está cadastrado
-      $erroCadastro =  "Usuário já cadastrado";
-      return $erroCadastro;
-    }
-
-    // Preparar a consulta SQL para inserir o novo usuário
-    $sql = "INSERT INTO usuarios (nome, email, senha, username, user_level) 
-            VALUES (:nome, :email, :senha, :username, 0)";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-      ':nome' => $nome,
-      ':email' => $email,
-      ':senha' => password_hash($senha, PASSWORD_DEFAULT),
-      ':username' => $username
-    ]);
-
-    // Encerrar a conexão com o banco de dados
     $pdo = null;
-    
-    // Redirecionar para index.php
-    redirectIndex();
+    return "Usuário cadastrado com sucesso! Faça login: <a href='/login/login.php'>Clique aqui!</a>";
+  } catch (PDOException $e) {
+    return "Erro ao conectar ao banco de dados: " . $e->getMessage();
+  } catch (Exception $e) {
+    return $e->getMessage();
   }
+}
+
+function inserir_usuario($pdo, $nome, $email, $senha, $username)
+{
+  $sql = "INSERT INTO usuarios (nome, email, senha, username, user_level) 
+          VALUES (:nome, :email, :senha, :username, 0)";
+  $stmt = $pdo->prepare($sql);
+  $stmt->execute([
+    ':nome' => $nome,
+    ':email' => $email,
+    ':senha' => password_hash($senha, PASSWORD_DEFAULT),
+    ':username' => $username
+  ]);
 }
 
 
@@ -75,15 +82,15 @@ function cadastrar_usuario()
 // verifica se o usuário está logado
 function verifica_login()
 {
-  
+
 
   if (isset($_SESSION['usuario_id'])) {
     $login_url = '../login/logout.php';
     $login_text = 'Sair';
     $logged = 1;
     /*
-      $usuario_id = '';
-  $usuario_nome = ''; // inicializa a variável fora do bloco condicional
+    $usuario_id = '';
+    $usuario_nome = ''; // inicializa a variável fora do bloco condicional
     $usuario_id = $_SESSION['usuario_id'];
     $pdo = conectar_banco();
     $stmt = $pdo->prepare("SELECT nome FROM usuarios WHERE usuario_id = $usuario_id");
@@ -91,7 +98,7 @@ function verifica_login()
     $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
     $pdo = null;
     if ($usuario) {
-      $usuario_nome = $usuario['nome'];
+    $usuario_nome = $usuario['nome'];
     }
     */
   } else {
@@ -99,7 +106,7 @@ function verifica_login()
     $login_text = 'Fazer Login';
     $logged = 0;
   }
-return array('url' => $login_url, 'text' => $login_text, 'logged' => $logged /*, 'usuario_nome'=> $usuario_nome*/); 
+  return array('url' => $login_url, 'text' => $login_text, 'logged' => $logged /*, 'usuario_nome'=> $usuario_nome*/);
 }
 
 
@@ -118,7 +125,7 @@ function efetuaLogin()
 
     if (password_verify($senha, $usuario['senha'])) {
       $_SESSION['usuario_id'] = $usuario['id'];
-    redirectIndex();
+      redirectIndex();
     } else {
       $erro = 'E-mail ou senha incorretos.';
       return $erro;
@@ -142,23 +149,21 @@ function prepara_consulta_aprov_docs()
 
 function index()
 {
-    $pdo = conectar_banco();
+  $pdo = conectar_banco();
 
-    // Buscar todos os informativos
-    $stmt = $pdo->prepare("SELECT * FROM informativos");
-    $stmt->execute();
-    $informativos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  // Buscar todos os informativos
+  $stmt = $pdo->prepare("SELECT * FROM informativos");
+  $stmt->execute();
+  $informativos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Buscar todas as imagens de cada informativo
-    foreach ($informativos as &$informativo) {
-        $stmt = $pdo->prepare("SELECT * FROM imagens_informativos WHERE informativo_id = :informativo_id");
-        $stmt->execute([':informativo_id' => $informativo['id']]);
-        $informativo['imagens'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
+  // Buscar todas as imagens de cada informativo
+  foreach ($informativos as &$informativo) {
+    $stmt = $pdo->prepare("SELECT * FROM imagens_informativos WHERE informativo_id = :informativo_id");
+    $stmt->execute([':informativo_id' => $informativo['id']]);
+    $informativo['imagens'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
 
-    $pdo = null;
+  $pdo = null;
 
-    return array('informativos' => $informativos);
+  return array('informativos' => $informativos);
 }
-
-

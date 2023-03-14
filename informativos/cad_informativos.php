@@ -9,6 +9,7 @@ if ($is_logged_in['logged'] == 0) {
 }
 ?>
 
+<!-- cad_informativos.php -->
 <!DOCTYPE html>
 <html lang="PT-Br">
 
